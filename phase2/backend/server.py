@@ -1,23 +1,32 @@
-"""Local TCP JSONL ingest + browser WebSocket bridge, from separate processes.
-Install: pip install websockets>=14,<17
-Run: python backend/server.py (from phase2 directory)
+"""Local TCP JSONL sensor ingest + browser WebSocket bridge.
+
+Run from phase2/: python backend/server.py
+Only the local React UI may send the allow-listed commands in ui_commands.py.
+Hardware/device events continue to arrive through the existing TCP contract.
 """
 import asyncio
 import json
 import logging
+
 from engine import Engine
+from ui_commands import InvalidUICommand, to_engine_event
 
 try:
     from websockets.asyncio.server import serve
 except ImportError as exc:
-    raise SystemExit("Install requirements: python -m pip install -r requirements-core.txt") from exc
+    raise SystemExit("Install: python -m pip install -r requirements-core.txt") from exc
 
-HOST = "127.0.0.1"  # Never bind this classroom demo to public interfaces
+HOST = "127.0.0.1"  # Deliberately loopback-only
+TCP_PORT = 8765
+WS_PORT = 8766
+ALLOWED_WS_ORIGINS = (None, "http://127.0.0.1:5173", "http://localhost:5173")
 engine = Engine()
 subscribers = set()
 lock = asyncio.Lock()
 
+
 async def broadcast(state):
+    """Publish state to connected browsers. Called under the state lock."""
     message = json.dumps({"type": "state", "payload": state})
     dead = []
     for ws in list(subscribers):
@@ -28,44 +37,72 @@ async def broadcast(state):
     for ws in dead:
         subscribers.discard(ws)
 
+
+async def apply_event(event):
+    """Serialize updates and broadcasts so consumers never receive stale state."""
+    async with lock:
+        state = engine.handle(event)
+        await broadcast(state)
+        return state
+
+
 async def tcp_client(reader, writer):
     try:
-        while (raw := await reader.readline()):
+        while True:
+            try:
+                raw = await reader.readline()
+            except ValueError:
+                writer.write(b'{"ok":false,"error":"Message too large"}\n')
+                await writer.drain()
+                break
+            if not raw:
+                break
             if len(raw) > 8192:
                 writer.write(b'{"ok":false,"error":"Message too large"}\n')
                 await writer.drain()
                 break
             try:
-                event = json.loads(raw.decode('utf-8'))
-                async with lock:
-                    state = engine.handle(event)
+                event = json.loads(raw.decode("utf-8"))
+                await apply_event(event)
                 writer.write(b'{"ok":true}\n')
                 await writer.drain()
-                await broadcast(state)
             except (ValueError, UnicodeDecodeError) as exc:
-                writer.write((json.dumps({"ok": False, "error": str(exc)}) + "\n").encode())
+                writer.write((json.dumps({"ok": False, "error": str(exc)[:200]}) + "\n").encode())
                 await writer.drain()
     finally:
         writer.close()
         await writer.wait_closed()
 
+
 async def ws_client(ws):
-    subscribers.add(ws)
     try:
-        await ws.send(json.dumps({"type": "state", "payload": engine.view()}))
-        # Read-only frontend. Input/selection is sent via a sensor process on TCP.
-        async for _ in ws:
-            await ws.send(json.dumps({"type": "error", "message": "Read-only browser connection"}))
+        # Subscribe and send the initial snapshot atomically with broadcasts.
+        async with lock:
+            subscribers.add(ws)
+            await ws.send(json.dumps({"type": "state", "payload": engine.view()}))
+
+        async for raw in ws:
+            try:
+                if not isinstance(raw, str):
+                    raise InvalidUICommand("Expected a JSON text command")
+                command = json.loads(raw)
+                event = to_engine_event(command)
+                await apply_event(event)
+            except (ValueError, json.JSONDecodeError) as exc:
+                await ws.send(json.dumps({"type": "error", "message": str(exc)[:200]}))
     finally:
         subscribers.discard(ws)
 
+
 async def main():
     logging.basicConfig(level=logging.INFO)
-    tcp = await asyncio.start_server(tcp_client, HOST, 8765, limit=16384)
-    async with tcp, serve(ws_client, HOST, 8766):
-        print("TCP event server: 127.0.0.1:8765")
-        print("Browser WebSocket: ws://127.0.0.1:8766")
+    tcp = await asyncio.start_server(tcp_client, HOST, TCP_PORT, limit=16384)
+    async with tcp, serve(ws_client, HOST, WS_PORT,
+                          origins=ALLOWED_WS_ORIGINS, max_size=8192):
+        print(f"TCP event server: {HOST}:{TCP_PORT}")
+        print(f"Browser WebSocket: ws://{HOST}:{WS_PORT}")
         await asyncio.Future()
+
 
 if __name__ == "__main__":
     try:

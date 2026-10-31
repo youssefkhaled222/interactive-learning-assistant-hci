@@ -22,3 +22,8 @@ All processes run locally. Sensor modules write **one JSON object per line** to 
 4. The `game.select` event is an integration contract and currently the demo generator supplies it. Production code must validate the target using actual gesture/gaze/object sensor output.
 5. This starter does not implement real object detection or calibrated eye tracking. Both remain work for the team.
 6. Python TCP and WebSocket bridge run locally; do not expose ports to the internet.
+
+## Browser command extension
+
+For validated **React-to-Python** commands, see `WS_COMMANDS.md`.
+This extension does not change or replace the existing TCP sensor event contract.
