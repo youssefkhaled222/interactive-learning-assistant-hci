@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+*.py[cod]
+*.log
+.DS_Store
+.env*
+# Private data and trained template paths: do NOT commit child recordings
+videos/
+recordings/
+*.mp4
+*.avi

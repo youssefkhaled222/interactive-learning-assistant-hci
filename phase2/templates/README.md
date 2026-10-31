@@ -1,0 +1,1 @@
+Real gesture templates will be saved here after capturing consenting adult testers through MediaPipe with `pose_tracker.py`. They are NOT present in the starter. Do not present any synthetic templates as trained real data.

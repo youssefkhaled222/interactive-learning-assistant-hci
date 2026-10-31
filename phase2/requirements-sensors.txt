@@ -1,0 +1,6 @@
+# Install separately after the core pipeline works, using a supported Python version.
+mediapipe
+opencv-python
+numpy
+dollarpy
+bleak
