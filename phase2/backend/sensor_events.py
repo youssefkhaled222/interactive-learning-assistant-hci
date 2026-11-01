@@ -23,6 +23,7 @@ SCHEMAS = {
     "mode.selected": ({"mode"}, set()),
     "game.select": ({"object"}, set()),
     "game.restart": (set(), set()),
+    "objects.detected": ({"active", "detections"}, set()),
 }
 
 
@@ -67,6 +68,34 @@ def validate_sensor_event(event):
             score = result["score"]
             if type(score) not in (int, float) or not math.isfinite(score):
                 raise InvalidSensorEvent("score must be a finite number")
+    elif kind == "objects.detected":
+        if type(result["active"]) is not bool:
+            raise InvalidSensorEvent("active must be true or false")
+        detections = result["detections"]
+        if not isinstance(detections, list) or len(detections) > 10:
+            raise InvalidSensorEvent("detections must be a list with at most 10 objects")
+        if not result["active"] and detections:
+            raise InvalidSensorEvent("inactive detector must have empty detections")
+        checked = []
+        for item in detections:
+            if not isinstance(item, dict) or set(item) != {"object", "confidence", "box"}:
+                raise InvalidSensorEvent("Invalid detection fields")
+            if item["object"] not in ("apple", "book", "cup"):
+                raise InvalidSensorEvent("Unsupported detected object")
+            conf = item["confidence"]
+            if type(conf) not in (int, float) or not math.isfinite(conf) or not 0 <= conf <= 1:
+                raise InvalidSensorEvent("confidence must be between 0 and 1")
+            box = item["box"]
+            keys = ("x_min", "y_min", "x_max", "y_max")
+            if not isinstance(box, dict) or set(box) != set(keys):
+                raise InvalidSensorEvent("Invalid detection box")
+            if not all(type(box[k]) in (int, float) and math.isfinite(box[k]) and 0 <= box[k] <= 1 for k in keys):
+                raise InvalidSensorEvent("Box coordinates must be finite numbers in [0,1]")
+            if box["x_max"] <= box["x_min"] or box["y_max"] <= box["y_min"]:
+                raise InvalidSensorEvent("Detection box must have positive area")
+            checked.append({"object": item["object"], "confidence": float(conf),
+                            "box": {k: float(box[k]) for k in keys}})
+        result["detections"] = checked
     elif kind == "lighting.changed":
         if result["level"] not in ("good", "low", "unknown"):
             raise InvalidSensorEvent("level must be good, low or unknown")

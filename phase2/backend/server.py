@@ -11,6 +11,7 @@ import logging
 from engine import Engine
 from ui_commands import InvalidUICommand, to_engine_event
 from sensor_events import validate_sensor_event
+from object_tracking import ObjectTracker
 
 try:
     from websockets.asyncio.server import serve
@@ -25,6 +26,7 @@ WS_SEND_TIMEOUT_SECONDS = 1.0  # Avoid stalling sensor events behind a hung brow
 engine = Engine()
 subscribers = set()
 lock = asyncio.Lock()
+object_tracker = ObjectTracker()
 
 
 async def broadcast(state):
@@ -45,6 +47,26 @@ async def broadcast(state):
     await asyncio.gather(*(deliver(ws) for ws in tuple(subscribers)))
 
 
+def current_state():
+    # Detector metadata is separate from Mohamed's mutable learning engine.
+    return {**engine.view(), **object_tracker.state()}
+
+
+async def expire_object_detections(now=None):
+    """Broadcast a cleared detection state after a crashed/stalled detector."""
+    async with lock:
+        if object_tracker.expire(now=now):
+            await broadcast(current_state())
+            return True
+    return False
+
+
+async def detector_watchdog():
+    while True:
+        await asyncio.sleep(0.5)
+        await expire_object_detections()
+
+
 async def apply_event(event):
     """Serialize updates and broadcasts so consumers never receive stale state.
 
@@ -54,12 +76,18 @@ async def apply_event(event):
     doesn't necessarily emit a final pose.tracking=false.
     """
     async with lock:
+        if event["type"] == "objects.detected":
+            object_tracker.update(event)
+            state = current_state()
+            await broadcast(state)
+            return state
         if event["type"] == "camera.status" and event["ready"] is False:
             engine.handle({
                 "type": "pose.tracking", "visible": False,
                 "source": event["source"],
             })
-        state = engine.handle(event)
+        engine.handle(event)
+        state = current_state()
         await broadcast(state)
         return state
 
@@ -108,7 +136,7 @@ async def ws_client(ws):
         # Subscribe and send the initial snapshot atomically with broadcasts.
         async with lock:
             subscribers.add(ws)
-            await ws.send(json.dumps({"type": "state", "payload": engine.view()}))
+            await ws.send(json.dumps({"type": "state", "payload": current_state()}))
 
         async for raw in ws:
             try:
@@ -130,7 +158,15 @@ async def main():
                           origins=ALLOWED_WS_ORIGINS, max_size=8192):
         print(f"TCP event server: {HOST}:{TCP_PORT}")
         print(f"Browser WebSocket: ws://{HOST}:{WS_PORT}")
-        await asyncio.Future()
+        watchdog = asyncio.create_task(detector_watchdog())
+        try:
+            await asyncio.Future()
+        finally:
+            watchdog.cancel()
+            try:
+                await watchdog
+            except asyncio.CancelledError:
+                pass
 
 
 if __name__ == "__main__":

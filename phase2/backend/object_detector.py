@@ -11,6 +11,7 @@ Install Ultralytics in a separate environment. See docs/OBJECT_DETECTION.md.
 import argparse
 import json
 import math
+import time
 from pathlib import Path
 
 SUPPORTED_OBJECTS = frozenset({"apple", "cup", "book"})
@@ -106,6 +107,8 @@ def run(args):
     indices = supported_class_indices(model.names)
     print("Real detection model loaded. Objects: apple, cup, book. ESC/Q to exit.", flush=True)
     if args.image is not None:
+        if args.publish:
+            raise SystemExit("--publish is only supported in live webcam mode")
         frame = cv2.imread(str(args.image))
         if frame is None:
             raise SystemExit(f"Cannot read image: {args.image}")
@@ -128,6 +131,18 @@ def run(args):
     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     last_labels = None
     frame_num = 0
+    last_publish = 0.0
+    if args.publish:
+        from send_event import send
+
+        def publish(active, objects):
+            try:
+                ack = send({"type": "objects.detected", "source": "yolo",
+                            "active": active, "detections": objects})
+                if not ack.get("ok"):
+                    print(f"Detection broker rejected event: {ack}", flush=True)
+            except OSError as exc:
+                print(f"Detection broker unavailable: {exc}", flush=True)
     try:
         while True:
             ok, frame = capture.read()
@@ -139,6 +154,9 @@ def run(args):
                                        imgsz=args.image_size, device=args.device, verbose=False)[0]
             detections = parse_detections(prediction, w, h, args.min_confidence)
             labels = tuple(sorted({d["object"] for d in detections}))
+            if args.publish and (time.monotonic() - last_publish >= 0.35):
+                publish(True, detections)
+                last_publish = time.monotonic()
             frame_num += 1
             if labels != last_labels or (args.log_every and frame_num % args.log_every == 0):
                 print(json.dumps(preview_record(detections, w, h), ensure_ascii=False), flush=True)
@@ -150,6 +168,8 @@ def run(args):
             if (cv2.waitKey(1) & 0xFF) in (27, ord("q")):
                 break
     finally:
+        if args.publish:
+            publish(False, [])
         capture.release()
         cv2.destroyAllWindows()
 
@@ -163,6 +183,7 @@ def main():
     parser.add_argument("--image-size", type=int, default=640)
     parser.add_argument("--device", default="cpu", help="Start with cpu; CUDA only after verification")
     parser.add_argument("--log-every", type=int, default=60, help="Print diagnostic detection JSON every N frames")
+    parser.add_argument("--publish", action="store_true", help="Publish real detection metadata to local TCP 127.0.0.1:8765")
     parser.add_argument("--save-annotated", type=Path, help="Explicitly save annotated still image (not webcam)")
     args = parser.parse_args()
     if args.image_size < 160 or args.image_size > 1280:

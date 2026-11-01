@@ -69,3 +69,31 @@ multi-camera setup needs camera-specific IDs to avoid clearing child-facing
 pose tracking when an unrelated object-facing camera stops. Also, a hard
 process kill or hardware crash may prevent delivery of the shutdown event;
 that case requires a sensor heartbeat/timeout, not this shutdown handler.
+
+## Object detector metadata extension (additive; v0.4)
+
+`objects.detected` is an **object-facing detector** event independent of the
+child-facing MediaPipe Pose tracking and independent of `game.select`:
+
+```json
+{"type":"objects.detected","source":"yolo","active":true,"detections":[{"object":"cup","confidence":0.84,"box":{"x_min":0.2,"y_min":0.2,"x_max":0.5,"y_max":0.7}}]}
+```
+
+- `detections` may contain 0–10 validated `apple`, `book`, or `cup` objects.
+  Boxes are normalized 0–1 coordinates and scores are finite 0–1 numbers.
+  No frame bytes, names, or other personal data enter the socket.
+- `active:true, detections:[]` is valid when no objects are visible. On normal
+  detector shutdown, send `active:false, detections:[]`. The server clears a
+  crashed/stalled detector after 2.5 seconds without fresh updates.
+- Only the **server** assigns temporary `target_id` values (e.g. `obj-1`) by
+  matching adjacent boxes of the same class; IDs may change after occlusion.
+  React state adds `object_detection_active`, `detected_objects` and
+  `object_detection_source` without changing the learner-engine fields.
+- These boxes are only recognition metadata. They **do not** imply that
+  physical objects appear on screen, and they never trigger `game.select`.
+  Video preview, target highlighting, gesture-to-box matching, and gaze dwell
+  are future integration work. `source:"yolo"` is diagnostic only, not proof
+  that a particular camera ran.
+- **One webcam limitation:** stop `pose_tracker.py` before running YOLO on
+  camera index 0. Camera shutdown of the object detector does not send the
+  pose-owned `camera.status` event.

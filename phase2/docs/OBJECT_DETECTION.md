@@ -81,3 +81,9 @@ and frontend teams.
 
 Ultralytics YOLO11 weights/software are distributed under AGPL-3.0 / Enterprise
 terms; review license requirements before commercial reuse or redistribution.
+
+## Optional local TCP/WebSocket metadata bridge
+
+After verifying standalone object detection, see `OBJECT_DETECTION_BRIDGE.md`
+for `--publish` integration with the Python backend and React state. This
+adds real detection *metadata* only, **not** image streaming or selection.
