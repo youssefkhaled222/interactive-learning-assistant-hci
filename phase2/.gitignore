@@ -12,3 +12,6 @@ videos/
 recordings/
 *.mp4
 *.avi
+
+# Keep model checkpoints out of Git history
+*.pt
