@@ -27,3 +27,31 @@ All processes run locally. Sensor modules write **one JSON object per line** to 
 
 For validated **React-to-Python** commands, see `WS_COMMANDS.md`.
 This extension does not change or replace the existing TCP sensor event contract.
+
+## TCP sensor ingress validation (additive v0.2)
+
+The broker now validates **types and allowed fields before applying any event**.
+These are the same event names and payloads already documented above. There
+are no extra fields to add to Mostafa's or Malak's messages. Every TCP event
+must contain a non-empty string `source` field; the existing examples do.
+
+- `pose.tracking.visible` and `camera.status.ready` must be JSON booleans
+  (`true`/`false`), **not** strings such as `"false"`, or integers such as `0`.
+- `device.discovered.device_id`, `gesture.recognized.name` and
+  `game.select.object` must be non-empty strings. `gesture.recognized.score`,
+  when included, must be a finite JSON number, not a percentage string.
+- `lighting.changed.level` must be `good`, `low` or `unknown`.
+- Unexpected event names, missing fields and extra fields are rejected with
+  `{"ok":false,"error":"..."}`. The TCP connection remains usable after a
+  valid-size invalid event; one event rejection does not change game state or
+  broadcast to React. Oversized events (over 8192 bytes) close that connection.
+- Valid messages still receive `{"ok":true}` and broadcast full current state.
+
+**Trust boundary:** Schema validation is **not authentication**. Any local
+program able to connect to the TCP port can claim `source:"mediapipe"` or
+`source:"bleak"`. Those strings are debugging labels, never proof of real
+hardware. The hardware demonstrations must show the source process, sensors
+and output independently. Real target matching and gaze calibration are not
+implemented by this validation change.
+
+Run `python -m unittest discover -s tests -v` before submitting changes.

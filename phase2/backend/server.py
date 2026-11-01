@@ -10,6 +10,7 @@ import logging
 
 from engine import Engine
 from ui_commands import InvalidUICommand, to_engine_event
+from sensor_events import validate_sensor_event
 
 try:
     from websockets.asyncio.server import serve
@@ -46,6 +47,10 @@ async def apply_event(event):
         return state
 
 
+def _reject_nonfinite(value):
+    raise ValueError("Non-finite JSON number is not allowed")
+
+
 async def tcp_client(reader, writer):
     try:
         while True:
@@ -62,8 +67,8 @@ async def tcp_client(reader, writer):
                 await writer.drain()
                 break
             try:
-                event = json.loads(raw.decode("utf-8"))
-                await apply_event(event)
+                event = json.loads(raw.decode("utf-8"), parse_constant=_reject_nonfinite)
+                await apply_event(validate_sensor_event(event))
                 writer.write(b'{"ok":true}\n')
                 await writer.drain()
             except (ValueError, UnicodeDecodeError) as exc:
