@@ -21,22 +21,28 @@ HOST = "127.0.0.1"  # Deliberately loopback-only
 TCP_PORT = 8765
 WS_PORT = 8766
 ALLOWED_WS_ORIGINS = (None, "http://127.0.0.1:5173", "http://localhost:5173")
+WS_SEND_TIMEOUT_SECONDS = 1.0  # Avoid stalling sensor events behind a hung browser.
 engine = Engine()
 subscribers = set()
 lock = asyncio.Lock()
 
 
 async def broadcast(state):
-    """Publish state to connected browsers. Called under the state lock."""
+    """Fan out state without letting one stalled browser block everyone else.
+
+    Called under the state lock. Each browser gets the *same* snapshot;
+    slow/failed subscribers are removed and may reconnect for fresh state.
+    """
     message = json.dumps({"type": "state", "payload": state})
-    dead = []
-    for ws in list(subscribers):
+
+    async def deliver(ws):
         try:
-            await ws.send(message)
-        except Exception:
-            dead.append(ws)
-    for ws in dead:
-        subscribers.discard(ws)
+            await asyncio.wait_for(ws.send(message), timeout=WS_SEND_TIMEOUT_SECONDS)
+        except Exception as exc:
+            subscribers.discard(ws)
+            logging.warning("Dropped nonresponsive WebSocket subscriber: %s", type(exc).__name__)
+
+    await asyncio.gather(*(deliver(ws) for ws in tuple(subscribers)))
 
 
 async def apply_event(event):
@@ -74,9 +80,16 @@ async def tcp_client(reader, writer):
             except (ValueError, UnicodeDecodeError) as exc:
                 writer.write((json.dumps({"ok": False, "error": str(exc)[:200]}) + "\n").encode())
                 await writer.drain()
+    except (ConnectionResetError, BrokenPipeError):
+        # A sensor process can terminate while sending or receiving its ack.
+        # Do not let a dropped producer affect other connections.
+        pass
     finally:
         writer.close()
-        await writer.wait_closed()
+        try:
+            await writer.wait_closed()
+        except (ConnectionResetError, BrokenPipeError):
+            pass
 
 
 async def ws_client(ws):
