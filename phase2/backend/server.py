@@ -46,8 +46,19 @@ async def broadcast(state):
 
 
 async def apply_event(event):
-    """Serialize updates and broadcasts so consumers never receive stale state."""
+    """Serialize updates and broadcasts so consumers never receive stale state.
+
+    Camera shutdown invalidates the last pose detection. Do this atomically
+    before the public camera event, so React sees one consistent snapshot.
+    The pose tracker currently sends camera.status=false when it exits but
+    doesn't necessarily emit a final pose.tracking=false.
+    """
     async with lock:
+        if event["type"] == "camera.status" and event["ready"] is False:
+            engine.handle({
+                "type": "pose.tracking", "visible": False,
+                "source": event["source"],
+            })
         state = engine.handle(event)
         await broadcast(state)
         return state

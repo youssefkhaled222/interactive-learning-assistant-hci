@@ -55,3 +55,17 @@ and output independently. Real target matching and gaze calibration are not
 implemented by this validation change.
 
 Run `python -m unittest discover -s tests -v` before submitting changes.
+
+## Camera shutdown / tracking consistency (additive v0.3)
+
+When a valid `camera.status` event arrives with `ready:false`, the socket
+bridge **atomically clears the previous pose-tracking state** before
+broadcasting the camera-off snapshot. The React subscriber therefore sees
+`camera_ready:false` and `tracking:false` together, with one broadcast for
+that event. This does not change the sensor JSON format or add a new field.
+
+This behavior assumes the current single-camera integration. A future
+multi-camera setup needs camera-specific IDs to avoid clearing child-facing
+pose tracking when an unrelated object-facing camera stops. Also, a hard
+process kill or hardware crash may prevent delivery of the shutdown event;
+that case requires a sensor heartbeat/timeout, not this shutdown handler.
