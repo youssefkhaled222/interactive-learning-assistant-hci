@@ -63,7 +63,8 @@ class TestCameraShutdown(unittest.IsolatedAsyncioTestCase):
             state = await self.read_state(browser)
             self.assertFalse(state["camera_ready"])
             self.assertFalse(state["tracking"])
-            self.assertEqual(state["status"], "Check camera")
+            self.assertEqual(state["block_reason"], "camera_not_ready")
+            self.assertIn("camera", state["status"].lower())
             self.assertEqual(state["event_source"], "mediapipe")
             # No intermediate tracking-lost state broadcast.
             with self.assertRaises(asyncio.TimeoutError):
@@ -84,7 +85,8 @@ class TestCameraShutdown(unittest.IsolatedAsyncioTestCase):
         state = server.engine.view()
         self.assertTrue(state["camera_ready"])
         self.assertFalse(state["tracking"])
-        self.assertEqual(state["status"], "Tracking lost — please return to camera")
+        self.assertEqual(state["block_reason"], "tracking_lost")
+        self.assertIn("tracking lost", state["status"].lower())
 
 
 if __name__ == "__main__":

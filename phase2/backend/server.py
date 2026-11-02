@@ -7,6 +7,7 @@ Hardware/device events continue to arrive through the existing TCP contract.
 import asyncio
 import json
 import logging
+import os
 
 from engine import Engine
 from ui_commands import InvalidUICommand, to_engine_event
@@ -23,7 +24,10 @@ TCP_PORT = 8765
 WS_PORT = 8766
 ALLOWED_WS_ORIGINS = (None, "http://127.0.0.1:5173", "http://localhost:5173")
 WS_SEND_TIMEOUT_SECONDS = 1.0  # Avoid stalling sensor events behind a hung browser.
-engine = Engine()
+# The live server never accepts selections before real sensor readiness.
+# Next-object UI is opt-in until Ahmed implements the corresponding screen.
+engine = Engine(require_next=os.environ.get("HCI_REQUIRE_NEXT") == "1",
+                require_sensor_ready=True)
 subscribers = set()
 lock = asyncio.Lock()
 object_tracker = ObjectTracker()

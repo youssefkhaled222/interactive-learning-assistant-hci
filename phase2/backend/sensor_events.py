@@ -14,14 +14,15 @@ class InvalidSensorEvent(ValueError):
 # Required fields in addition to `type` and `source`, plus optional fields.
 # Keep these event names/fields consistent with docs/EVENT_CONTRACT.md.
 SCHEMAS = {
-    "device.discovered": ({"device_id"}, set()),
-    "device.lost": (set(), set()),
+    "device.discovered": ({"device_id"}, {"ts"}),
+    "device.lost": (set(), {"device_id", "ts"}),
     "pose.tracking": ({"visible"}, set()),
     "camera.status": ({"ready"}, set()),
     "gesture.recognized": ({"name"}, {"score"}),
     "lighting.changed": ({"level"}, set()),
     "mode.selected": ({"mode"}, set()),
     "game.select": ({"object"}, set()),
+    "game.next": (set(), set()),
     "game.restart": (set(), set()),
     "objects.detected": ({"active", "detections"}, set()),
 }
@@ -56,8 +57,13 @@ def validate_sensor_event(event):
     result = dict(event)
     result["source"] = _text(result["source"], "source")
 
-    if kind == "device.discovered":
-        result["device_id"] = _text(result["device_id"], "device_id", 128)
+    if kind in ("device.discovered", "device.lost"):
+        if "device_id" in result:
+            result["device_id"] = _text(result["device_id"], "device_id", 128)
+        if "ts" in result:
+            ts = result["ts"]
+            if type(ts) not in (int, float) or not math.isfinite(ts) or ts < 0:
+                raise InvalidSensorEvent("ts must be a finite nonnegative timestamp")
     elif kind in ("pose.tracking", "camera.status"):
         field = "visible" if kind == "pose.tracking" else "ready"
         if type(result[field]) is not bool:

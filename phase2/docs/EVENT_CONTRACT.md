@@ -97,3 +97,31 @@ child-facing MediaPipe Pose tracking and independent of `game.select`:
 - **One webcam limitation:** stop `pose_tracker.py` before running YOLO on
   camera index 0. Camera shutdown of the object detector does not send the
   pose-owned `camera.status` event.
+
+## Context-engine integration (additive v0.5; review)
+
+The following optional fields are now allowed on the **existing** BLE events:
+
+```json
+{"type":"device.discovered","device_id":"demo-device-beginner","ts":1762000000.0,"source":"bleak"}
+{"type":"device.lost","device_id":"demo-device-beginner","ts":1762000001.0,"source":"bleak"}
+```
+
+`device.lost.device_id` and `ts` are optional; older messages still work. `ts` must be a
+finite nonnegative JSON number and should be a consistent source timestamp. Only accepted
+device events update the stale-event watermark. Invalid packets never mutate engine state.
+
+`game.next` is now a valid **empty-payload** TCP sensor event (`type`, `source` only) and a
+strictly allow-listed WebSocket browser command:
+
+```json
+{"type":"command","action":"game.next","payload":{}}
+```
+
+This advances a question only when the context engine is configured with `require_next=True`
+and its snapshot reports `awaiting_next:true`. The live server uses opt-in
+`HCI_REQUIRE_NEXT=1` until the frontend supports the explicit Next Object action.
+
+Live socket engine checks camera readiness and pose tracking for gesture selection; this
+does NOT authenticate a genuine pinch or map a hand to a recognized object. Gaze mode cannot
+answer until a real calibrated gaze adapter is added. Source names are still only diagnostic.

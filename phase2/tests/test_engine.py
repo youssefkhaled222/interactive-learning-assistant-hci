@@ -27,11 +27,11 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(x['first_try_correct'],0)
     def test_completed_and_first_try_separate(self):
         self.emit(type='device.discovered',device_id='demo-device-beginner')
-        for choice in ['apple','cup','book']:
+        for choice in ['apple','cup','book','apple','cup']:
             x=self.emit(type='game.select',object=choice)
         self.assertTrue(x['completed'])
-        self.assertEqual(x['question_index'],3)
-        self.assertEqual(x['first_try_correct'],3)
+        self.assertEqual(x['question_index'],5)
+        self.assertEqual(x['first_try_correct'],5)
     def test_tracking_loss(self):
         x=self.emit(type='pose.tracking',visible=False,source='mediapipe')
         self.assertFalse(x['tracking'])

@@ -25,17 +25,21 @@ class TestUICommands(unittest.TestCase):
             {"type":"command","action":"device.discovered","payload":{"device_id":"fake"}},
             {"type":"command","action":"mode.selected","payload":{"mode":"gaze"},"source":"simulator"},
             {"type":"command","action":"mode.selected","payload":{"mode":"gaze","source":"mediapipe"}},
-            {"type":"command","action":"game.next","payload":{}},
         ]
         for m in messages:
             with self.subTest(message=m), self.assertRaises(InvalidUICommand):
                 to_engine_event(m)
+
+    def test_next_object_command(self):
+        self.assertEqual(to_engine_event({"type":"command","action":"game.next","payload":{}}),
+                         {"type":"game.next","source":"ui_bridge"})
 
     def test_bad_shapes(self):
         messages = [None, 3, [], {},
                     {"type":"event","action":"game.restart","payload":{}},
                     {"type":"command","action":"mode.selected","payload":{"mode":"other"}},
                     {"type":"command","action":"game.restart","payload":{"x":1}},
+                    {"type":"command","action":"game.next","payload":{"object":"book"}},
                     {"type":"command","action":"mode.selected","payload":None}]
         for m in messages:
             with self.subTest(message=m), self.assertRaises(InvalidUICommand):

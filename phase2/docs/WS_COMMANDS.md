@@ -48,14 +48,20 @@ function sendCommand(action, payload = {}) {
 Invalid messages receive `{"type":"error","message":"..."}`. The browser
 must handle disconnects and prevent commands while disconnected.
 
+## Next Object (reviewed context engine)
+
+```json
+{"type":"command","action":"game.next","payload":{}}
+```
+
+Advances ONLY when `awaiting_next:true` in the engine. `HCI_REQUIRE_NEXT=1` must be set on the
+server **after Ahmed integrates the explicit Next Object feedback UI**. Browser `game.select` is
+still rejected. A browser Next button is not proof of gaze/hand selection.
+
 ## Not yet allowed from the browser
 
 - `game.select`: only verified camera/sensor target-selection events (TCP) may
   cause a real gameplay answer. A mouse-click simulation cannot claim hardware.
-- `game.next`: **pending agreement with Mohamed**. Phase I requires a Correct
-  Answer feedback state and explicit Next object before the index advances;
-  the baseline engine currently advances immediately. Mohamed owns this state
-  machine change; contact Youssef before enabling the next command.
 - BLE, pose, lighting and camera status events: originate from sensor adapters,
   not frontend buttons.
 
