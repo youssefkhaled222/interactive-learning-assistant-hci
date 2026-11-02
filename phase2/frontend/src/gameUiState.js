@@ -23,3 +23,18 @@ export function visibleDetections(state) {
     ['apple', 'book', 'cup'].includes(item?.object) && typeof item.target_id === 'string'
   );
 }
+
+// Progress markers show completed questions, never unearned gold stars.
+export function earnedStars(completed, total, starCount = 5) {
+  const count = Number.isInteger(starCount) && starCount > 0 ? Math.min(starCount, 20) : 5;
+  const totalSafe = Number.isFinite(total) && total > 0 ? total : 0;
+  const done = Number.isFinite(completed) ? Math.max(0, completed) : 0;
+  const filled = totalSafe ? Math.round(Math.min(done, totalSafe) / totalSafe * count) : 0;
+  return Array.from({ length: count }, (_, i) => i < filled);
+}
+
+// Reopening the journey after a previously completed session must not show
+// an empty gameplay panel; the backend is the authority on completion.
+export function nextScreenAfterSetup(state) {
+  return state?.completed ? 'results' : 'game';
+}

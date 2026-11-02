@@ -74,3 +74,45 @@ h1{font-size:clamp(30px,4vw,48px);line-height:1.12;margin:13px 0;color:#244d7a;f
 .hint-note{background:#e9f7e8;color:#3d7650;border:1px solid #cde6d0}
 .detection-note{color:#487390;background:#e5f3fc;margin-bottom:0;text-align:center}
 button:disabled{cursor:not-allowed;opacity:.55;transform:none!important;box-shadow:none!important}
+
+
+/* Final frontend-only QA refinements (do not imply sensor input is ready). */
+.mode-preview-label{display:inline-block;vertical-align:middle;font-size:10px;font-weight:900;letter-spacing:.02em;color:#885c23;background:#fff2d6;border-radius:20px;padding:5px 8px;margin-left:5px}
+.mini-stars{display:flex;gap:7px;line-height:1;flex-wrap:wrap}
+.mini-stars span{font-size:25px}
+.mini-stars .earned{color:#e8ac23}
+.mini-stars .unearned{color:#d8e3ec}
+@media(max-width:900px){
+  .setup-grid{grid-template-columns:1fr}
+  .camera-placeholder{min-height:205px}
+  .setup-side{padding:16px}
+  .readiness{padding:9px 12px;margin-top:7px}
+  .standard-panel{padding-top:30px;padding-bottom:30px}
+}
+@media(max-width:760px){
+  /* Show the current question before diagnostics on a child's small screen. */
+  .game-aside{order:0}
+  .game-layout{align-items:start}
+  .game-main{padding:22px 18px}
+  .game-main h1{font-size:clamp(25px,6vw,34px)}
+  .mini-stars{margin:10px 0}
+  .game-aside{padding:18px}
+  .progress-number{margin-top:8px;font-size:36px}
+  .setup-grid{gap:12px}
+}
+@media(max-width:480px){
+  .topbar{padding-bottom:14px}
+  .brand{font-size:17px}
+  .brand-mark{height:30px;width:30px}
+  .topbar-right{gap:3px}
+  .connection{font-size:10px;padding:6px 9px}
+  .section-heading{margin-bottom:17px}
+  .standard-panel,.game-main{border-radius:20px}
+  .mode-grid{gap:10px}
+  .mode-preview-label{display:block;margin:6px auto 0;width:max-content}
+  .mode-icon{font-size:43px}
+  .mode-card h2{font-size:19px}
+  .mode-card p{font-size:13px}
+  .game-main h1{margin:16px 0 5px}
+  .object-stage{margin:12px 0}
+}

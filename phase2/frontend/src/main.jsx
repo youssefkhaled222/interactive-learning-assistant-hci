@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
-import { feedbackChange, feedbackNextAction, visibleDetections } from './gameUiState.js';
+import { feedbackChange, feedbackNextAction, visibleDetections, earnedStars, nextScreenAfterSetup } from './gameUiState.js';
 
 const icons = {
   apple: '🍎',
@@ -143,6 +143,13 @@ function App() {
     if (!backend) return;
     const old = previous.current;
     previous.current = backend;
+    // A different learner/device can reset the session while results are open.
+    // Do not display a finished trophy screen for a newly loaded profile.
+    if (old && screen === 'results' && old.completed && !backend.completed) {
+      setFeedbackType('');
+      setScreen('welcome');
+      return;
+    }
     if (!old || screen !== 'game') return;
 
     const feedback = feedbackChange(old, backend);
@@ -187,6 +194,7 @@ function App() {
   const detections = visibleDetections(backend);
   const notices = Array.isArray(backend?.notices) ? backend.notices : [];
   const questionDone = backend?.questions_completed ?? backend?.question_index ?? 0;
+  const stars = earnedStars(questionDone, total);
 
   // ------------------------------------------------
   // Navigation Functions
@@ -313,9 +321,9 @@ function App() {
 
               <button
                 className="primary-btn"
-                onClick={() => setScreen('mode')}
+                onClick={() => setScreen(backend?.completed ? 'results' : 'mode')}
               >
-                Start Learning <span>→</span>
+                {backend?.completed ? 'View Results' : 'Start Learning'} <span>→</span>
               </button>
 
               <p className="helper-text">
@@ -356,7 +364,7 @@ function App() {
               <h1>How would you like to play?</h1>
 
               <p>
-                Both ways let you play the same finding game.
+                Hand gestures are being connected. Eye tracking is a layout preview only.
               </p>
             </div>
 
@@ -381,12 +389,12 @@ function App() {
                 onClick={() => chooseMode('eye')}
               >
                 <span className="mode-icon">👀</span>
-                <h2>Eye Tracking</h2>
+                <h2>Eye Tracking <small className="mode-preview-label">Preview only</small></h2>
                 <p>
-                  Look at an object and hold your look to choose.
+                  See the planned gaze calibration layout. Live gaze selection is not available yet.
                 </p>
                 <span className="card-action">
-                  Choose this way →
+                  View preview →
                 </span>
               </button>
 
@@ -541,9 +549,11 @@ function App() {
 
                 <div className="readiness">
                   <b>
-                    Camera: {backend?.camera_ready ? 'Ready' : 'Not ready'}
+                    Hand-tracking camera: {backend?.camera_ready ? 'Ready' : 'Not ready'}
                   </b>
-                  <p>{status}</p>
+                  <p>
+                    This readiness belongs to hand tracking, not the separate YOLO object detector.
+                  </p>
                 </div>
 
                 <div className={`readiness ${
@@ -589,10 +599,10 @@ function App() {
                 disabled={!connected || !backend}
                 onClick={() => {
                   setLocalSelection('');
-                  setScreen('game');
+                  setScreen(nextScreenAfterSetup(backend));
                 }}
               >
-                Open game →
+                {backend?.completed ? 'View results →' : 'Open game →'}
               </button>
 
             </div>
@@ -728,8 +738,10 @@ function App() {
 
               <p>{status}</p>
 
-              <div className="mini-stars">
-                ⭐ ⭐ ⭐ ⭐ ⭐
+              <div className="mini-stars" aria-label={`${questionDone} of ${total || '0'} questions completed`}>
+                {stars.map((earned, i) => (
+                  <span key={i} className={earned ? 'earned' : 'unearned'} aria-hidden="true">★</span>
+                ))}
               </div>
 
               <div className="sensor-note">
@@ -757,7 +769,7 @@ function App() {
                 </span>
 
                 <span>
-                  Camera: {backend?.camera_ready
+                  Hand camera: {backend?.camera_ready
                     ? 'Ready'
                     : 'Not ready'}
                 </span>
