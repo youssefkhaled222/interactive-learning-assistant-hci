@@ -1,0 +1,12 @@
+# Dedicated tracker environment; does not change shared requirements-sensors.txt.
+# OpenCV contrib supplies cv2; do NOT install opencv-python alongside it.
+mediapipe==0.10.21
+opencv-contrib-python==4.11.0.86
+numpy==1.26.4
+dollarpy==0.1.1
+# Bound transitive imports to a Python 3.11-compatible set.
+jax==0.4.35
+jaxlib==0.4.35
+scipy==1.14.1
+matplotlib==3.9.2
+protobuf==4.25.5
