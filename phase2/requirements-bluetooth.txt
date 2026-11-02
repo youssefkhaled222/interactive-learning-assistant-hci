@@ -1,0 +1,2 @@
+-r requirements-core.txt
+bleak==3.0.2
