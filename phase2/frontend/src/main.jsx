@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
+import CameraPreview from './CameraPreview.jsx';
 import { feedbackChange, feedbackNextAction, visibleDetections, earnedStars, nextScreenAfterSetup } from './gameUiState.js';
 
 const icons = {
@@ -528,14 +529,7 @@ function App() {
 
             <div className="setup-grid">
 
-              <div className="camera-placeholder">
-                <span>📷</span>
-                <b>Camera preview area</b>
-                <small>
-                  No video is transmitted over WebSocket. The object detector
-                  sends class names and box metadata only.
-                </small>
-              </div>
+              <CameraPreview />
 
               <div className="setup-side">
 
@@ -728,6 +722,8 @@ function App() {
             </div>
 
             <aside className="game-aside">
+
+              <CameraPreview compact />
 
               <h3>Your progress</h3>
 

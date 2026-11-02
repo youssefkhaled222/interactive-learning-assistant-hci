@@ -129,6 +129,15 @@ def run(args):
         raise SystemExit(f"Cannot open webcam index {args.camera}. Close Camera/MediaPipe first.")
     capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    preview_server = None
+    if args.stream:
+        from camera_preview import start_preview
+        try:
+            preview_server = start_preview(port=args.stream_port)
+        except OSError as exc:
+            capture.release()
+            raise SystemExit(f'Cannot start local camera preview on port {args.stream_port}: {exc}') from exc
+        print(f'Local camera preview: http://127.0.0.1:{args.stream_port}/video (React only)', flush=True)
     last_labels = None
     frame_num = 0
     last_publish = 0.0
@@ -164,14 +173,25 @@ def run(args):
             draw_detections(frame, detections, cv2)
             cv2.putText(frame, "Real YOLO detections | ESC/Q = exit", (8, 24),
                         cv2.FONT_HERSHEY_SIMPLEX, .48, (255, 255, 255), 2)
-            cv2.imshow("Find the Object - Real Detection (standalone)", frame)
-            if (cv2.waitKey(1) & 0xFF) in (27, ord("q")):
-                break
+            if preview_server is not None:
+                success, encoded = cv2.imencode('.jpg', frame,
+                                               [cv2.IMWRITE_JPEG_QUALITY, 75])
+                if success:
+                    preview_server.buffer.publish(encoded.tobytes())
+            if not args.no_window:
+                cv2.imshow("Find the Object - Real Detection (standalone)", frame)
+                if (cv2.waitKey(1) & 0xFF) in (27, ord("q")):
+                    break
+    except KeyboardInterrupt:
+        print('Stopping detector and local camera preview.', flush=True)
     finally:
+        if preview_server is not None:
+            preview_server.close()
         if args.publish:
             publish(False, [])
         capture.release()
-        cv2.destroyAllWindows()
+        if not args.no_window:
+            cv2.destroyAllWindows()
 
 
 def main():
@@ -184,8 +204,15 @@ def main():
     parser.add_argument("--device", default="cpu", help="Start with cpu; CUDA only after verification")
     parser.add_argument("--log-every", type=int, default=60, help="Print diagnostic detection JSON every N frames")
     parser.add_argument("--publish", action="store_true", help="Publish real detection metadata to local TCP 127.0.0.1:8765")
+    parser.add_argument("--stream", action="store_true", help="Serve annotated YOLO webcam frames to the local React preview (no answer selection)")
+    parser.add_argument("--stream-port", type=int, default=8767, help="Local preview port (default 8767)")
+    parser.add_argument("--no-window", action="store_true", help="Run without a separate OpenCV window; stop with Ctrl+C")
     parser.add_argument("--save-annotated", type=Path, help="Explicitly save annotated still image (not webcam)")
     args = parser.parse_args()
+    if args.stream and args.image is not None:
+        parser.error("--stream is only supported in webcam mode")
+    if args.stream_port < 1 or args.stream_port > 65535:
+        parser.error("stream-port must be in 1..65535")
     if args.image_size < 160 or args.image_size > 1280:
         parser.error("image-size should be between 160 and 1280")
     if args.log_every < 0:

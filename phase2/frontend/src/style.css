@@ -116,3 +116,16 @@ button:disabled{cursor:not-allowed;opacity:.55;transform:none!important;box-shad
   .game-main h1{margin:16px 0 5px}
   .object-stage{margin:12px 0}
 }
+
+/* Localhost MJPEG preview: independent of WebSocket game state and selections. */
+.local-camera-preview{width:100%;border-radius:18px;background:#eaf6ff;overflow:hidden;border:2px solid #b9d9ef;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260px;min-width:0}
+.local-camera-preview img{width:100%;height:auto;aspect-ratio:4/3;max-height:360px;object-fit:contain;background:#17314a;display:block}
+.local-camera-preview.compact{min-height:0;margin-bottom:22px;border-width:1px}
+.local-camera-preview.compact img{max-height:210px}
+.preview-fallback{min-height:215px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;color:#52799d}
+.preview-fallback>span{font-size:45px}.preview-fallback small{font-size:12px;line-height:1.55;color:#65839d;max-width:320px}
+.local-camera-preview.compact .preview-fallback{min-height:140px;padding:12px}
+.local-camera-preview.compact .preview-fallback>span{font-size:30px}
+.local-camera-preview .secondary-btn{font-size:12px;padding:8px 14px;box-shadow:none}
+.preview-caption{width:100%;padding:7px 11px;margin:0!important;background:#f3faff;color:#617f99!important;font-size:11px!important;text-align:center}
+@media(max-width:480px){.local-camera-preview img{max-height:260px}.local-camera-preview.compact img{max-height:180px}.preview-fallback{min-height:150px}}
