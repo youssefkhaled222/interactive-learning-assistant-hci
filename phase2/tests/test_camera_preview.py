@@ -49,10 +49,10 @@ class TestHTTPPreview(unittest.TestCase):
     def test_health_is_local_and_reports_real_frames_only(self):
         with urlopen(self.request('/health', {'Origin': 'http://127.0.0.1:5173'}), timeout=3) as response:
             self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), 'http://127.0.0.1:5173')
-            self.assertEqual(json.load(response), {'active': True, 'has_frame': False})
+            self.assertEqual(json.load(response), {'active': True, 'has_frame': False, 'frame_sequence': 0})
         self.server.buffer.publish(b'fake-jpeg-test')
         with urlopen(self.request('/health'), timeout=3) as response:
-            self.assertEqual(json.load(response), {'active': True, 'has_frame': True})
+            self.assertEqual(json.load(response), {'active': True, 'has_frame': True, 'frame_sequence': 1})
 
     def test_remote_origin_cannot_read_health(self):
         with self.assertRaises(HTTPError) as cm:

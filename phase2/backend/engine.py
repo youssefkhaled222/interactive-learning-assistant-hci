@@ -15,7 +15,7 @@ REGISTERED = {
 }
 
 EVENT_TYPES = (
-    "device.discovered", "device.lost", "pose.tracking", "camera.status",
+    "device.discovered", "device.lost", "pose.tracking", "hand.tracking", "camera.status",
     "lighting.changed", "mode.selected", "gesture.recognized",
     "game.select", "game.next", "game.restart",
 )
@@ -50,7 +50,7 @@ class Engine:
         self._last_select = None
         self.state = {
             "user_id": "guest", "level": "guest", "connected_device": None,
-            "mode": "gesture", "tracking": False, "camera_ready": False,
+            "mode": "gesture", "tracking": False, "hand_tracking": False, "camera_ready": False,
             "lighting": "unknown", "status": "Ready for setup", "last_gesture": None,
             "question_index": 0, "completed": False, "first_try_correct": 0,
             "wrong_attempts": 0, "attempts_this_question": 0,
@@ -65,7 +65,11 @@ class Engine:
         # Pose does not implement calibrated gaze. Never certify gaze as ready.
         if self.require_sensor_ready and self.state["mode"] == "gaze":
             return "gaze_not_ready"
-        if self._tracking_lost or (self.require_sensor_ready and not self.state["tracking"]):
+        # Gesture mode accepts either the original true Pose tracker OR
+        # the genuine same-camera Hand Landmarker. Do not fake pose.tracking.
+        real_tracking = (self.state["tracking"] or
+                         (self.state["mode"] == 'gesture' and self.state["hand_tracking"]))
+        if (self._tracking_lost and not real_tracking) or (self.require_sensor_ready and not real_tracking):
             return "tracking_lost"
         return None
 
@@ -85,6 +89,11 @@ class Engine:
 
     def view(self):
         s = deepcopy(self.state)
+        # UI's existing generic tracking indicator includes real hand tracking
+        # in gesture mode; preserve separate pose/hand facts for diagnostics.
+        s['pose_tracking'] = s['tracking']
+        if s['mode'] == 'gesture':
+            s['tracking'] = s['tracking'] or s['hand_tracking']
         level = s["level"]
         pack = PACKS[level]
         s["total_questions"] = len(pack)
@@ -151,9 +160,9 @@ class Engine:
             device = event.get("device_id")
             if device is not None and (not isinstance(device, str) or not device.strip()):
                 raise ValueError("'device_id' in device.lost must be a non-empty string")
-        elif t == "pose.tracking":
+        elif t in ("pose.tracking", "hand.tracking"):
             if not isinstance(event.get("visible"), bool):
-                raise ValueError("pose.tracking needs boolean 'visible'")
+                raise ValueError(f"{t} needs boolean 'visible'")
         elif t == "camera.status":
             if not isinstance(event.get("ready"), bool):
                 raise ValueError("camera.status needs boolean 'ready'")
@@ -240,6 +249,12 @@ class Engine:
                 self.state["status"] = f"Tracking is back - continue question {n}"
             else:
                 self.state["status"] = "Body tracked"
+
+    def _on_hand_tracking(self, event):  # HCI_REAL_PINCH_V4
+        was_visible = self.state['hand_tracking']
+        self.state['hand_tracking'] = event['visible']
+        if event['visible'] and not was_visible:
+            self.state['status'] = 'Hand tracked'
 
     def _on_camera_status(self, event):
         ready = event["ready"]

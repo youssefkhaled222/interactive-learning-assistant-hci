@@ -672,6 +672,11 @@ function App() {
               {backend?.input_blocked && (
                 <p className="warning-note">Selections are blocked until sensors are ready.</p>
               )}
+              {engineMode === 'gesture' && backend?.hand_selection?.hint && (
+                <p className="hint-note" role="status">
+                  Hand selection: {backend.hand_selection.hint}
+                </p>
+              )}
 
               {choices.length ? (
 
@@ -768,6 +773,9 @@ function App() {
                   Hand camera: {backend?.camera_ready
                     ? 'Ready'
                     : 'Not ready'}
+                </span>
+                <span>
+                  Pinch stage: {backend?.hand_selection?.phase || 'Not connected'}
                 </span>
 
                 <span>
