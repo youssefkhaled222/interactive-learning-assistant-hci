@@ -70,4 +70,3 @@ The deliberate invalid-input test messages and simulated WebSocket disconnect wa
 - One horizontal sample predicted horizontal but was rejected at similarity 0.3395.
 - This is offline recorded-data evaluation, not a new live-camera demonstration.
 - The small dataset does not establish generalization to new participants.
-
