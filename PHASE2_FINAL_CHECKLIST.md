@@ -1,37 +1,51 @@
-# HCI Phase II — completion criteria and current evidence
+# HCI Phase II — final readiness checklist
 
-The archive is a **software integration release candidate**, not independent proof of every physical requirement or a substitute for the course rubric. It is designed for your current branch `feature/real-hand-object-selection`, after v4. It does not overwrite Mostafa's Pose/DollarPy, Malak's BLE test setup, the YOLO model, or personal recordings.
+**Snapshot: 3 November 2026 | V6 branch: `feature/real-eye-tracking` | Commit: `a927371` (before documentation updates)**
 
-## Already demonstrated and automated
+This checklist separates **demonstrated**, **automated-tested**, **individually reported**, and **not yet verified**. A passing unit suite is not evidence of physical eye-tracking accuracy or a completed HCI user study.
 
-- Python backend, TCP 8765, WebSocket 8766; browser React interface and responsive camera preview.
-- Context-aware three learner packs, five questions per pack, Next Object and results view.
-- YOLO detections for real cup/apple/book; `yolo11s.pt` performed better on the book on this machine.
-- Genuine MediaPipe hand landmark extraction, pinch indicator, same-camera bounding boxes.
-- BLE enrolled device identity demo by teammate; Pose + DollarPy separately tested by teammate.
-- Before v5: 178 Python and 19 frontend tests passed. These are **not** physical end-to-end proof.
+## Completed / recorded
 
-## V5 in this archive
+- [x] Phase I written/Figma deliverables previously submitted; historical details in project README.
+- [x] Python broker (TCP `8765`), browser state bridge (WebSocket `8766`), React/Vite learning game and three learner packs integrated.
+- [x] YOLO11s on real camera detects supported apple, book, cup with box metadata; local preview at HTTP `8767`.
+- [x] MediaPipe Hands sees a real index point/pinch; backend target matching requires current, sufficiently stable object detection.
+- [x] **Physical hand-mode game completed: 5/5 questions, 5/5 first attempt, 0 wrong attempts**, screenshot captured by student.
+- [x] Stable gesture milestone committed and pushed: `f3602a7` on `feature/real-hand-object-selection`.
+- [x] Malak reports real BLE enrolled-device demonstration working separately; code integrated.
+- [x] Pose/DollarPy tracker code present and previously component-tested; integrated event pipeline has automated coverage.
+- [x] V6 face-camera calibration and 1.5-second gaze dwell code committed/pushed: `a927371` on `feature/real-eye-tracking`.
+- [x] On original V6 installation: **198 Python tests**, **22 React tests**, and frontend production build all passed.
+- [x] Official Face Landmarker model downloaded on original development laptop; **model is not committed to GitHub**.
 
-- Retains a validated **open-hand hover candidate** for at most 0.60s as YOLO briefly misses a box at pinch start. The pinch can NEVER score from cached data alone: a fresh, single, stable matching detection must be visible at commit.
-- Keeps pinch release/rearm and ambiguous/stale target safety protections.
-- Adds human-readable **Hand selection** guidance in React, and a precise **Pinch stage** in the sensor panel; no source impersonation or browser `game.select` path added.
-- Removes misleading always-false `game_select_sent` diagnostic text.
-- Adds one-command four-terminal Windows launcher, complete regression runner, demo walkthrough, and focused additional gate tests.
+## Finish before asking the teammate to perform the LAST physical gaze test
 
-## Must still be physically verified on the student's laptop
+- [ ] Replace outdated README, demonstration and checklist text with current implementation description and evidence.
+- [ ] Audit `.gitignore` and untracked files; ensure no `.venv`, `node_modules`, model bundles, child videos, ZIP payloads, installers, backups or secrets are committed accidentally.
+- [ ] Re-run `Run-HCI-Tests.cmd` after any subsequent edits; keep terminal output and `git diff --check` result.
+- [ ] Review Malak's BLE setup and capture her hardware proof or short screen recording; run one combined profile-change test if a shared machine/device is available.
+- [ ] Review Mostafa's approved camera/model/template setup; capture real horizontal/vertical classification output separately to avoid camera collision.
+- [ ] Preserve the existing successful 5/5 gesture result and test a negative case (hand loss / no live detection) without unexpectedly scoring.
+- [ ] Prepare architecture explanation, roles, screenshots, discussion questions and actual TA rubric requirements; don't invent child-user study results.
+- [ ] Have teammates review the V6 branch / proposed PR and agree on hardware test owner, model setup and evidence format. **Keep V6 unmerged until accepted.**
 
-- [ ] Restart all processes with V5 and confirm moving live preview and synced boxes.
-- [ ] Pick a real apple, book, and cup with a full open -> hover -> pinch -> release sequence; verify browser progress and backend logs.
-- [ ] Complete one **real five-question** session with Next Object, retries, score and final results. Record the result, not a simulator run.
-- [ ] Verify prolonged hand loss, duplicate boxes, and object removal do NOT earn points.
-- [ ] Confirm Malak's BLE profile switches and appropriate question packs with her device/test account.
-- [ ] Demonstrate Mostafa's Pose + DollarPy separately unless a second webcam is available; do not fight YOLO for camera index 0.
-- [ ] Run regression script, review `git diff --check`, then commit the intended work (avoid unrelated files and secrets).
-- [ ] Prepare team/supervisor-required submission report, demo proof, team responsibilities, and slides according to **actual Phase II rubric**.
+## LAST: physical gaze validation by teammate with TWO camera sources
 
-## Unfinished feature scope (cannot be certified by this archive)
+- [ ] Fresh clone/checkout of `feature/real-eye-tracking` and reproducible environment + model setup.
+- [ ] Separate object-facing YOLO camera and player-facing Face Landmarker camera both produce valid live observations.
+- [ ] Genuine nine-point calibration succeeds on teammate's hardware (including held-out center check).
+- [ ] Estimated gaze point tracks where participant actually looks in the large on-screen preview.
+- [ ] At least one 1.5-second gaze dwell selects the **correct fresh YOLO detection**, confirmed by backend log and React state.
+- [ ] Full five-question gaze session reaches results screen using only real gaze selections and Next Object.
+- [ ] Looking away, too-short dwell, wrong object, lost face, stale/ambiguous object boxes and calibration failure do not falsely score.
+- [ ] Re-run gesture test after V6 integration on that machine (or separately demonstrate it remains functional).
+- [ ] Record device model, camera indices, software versions, calibration result, test date, screenshots, successes and failures, and the exact commit tested.
+- [ ] If acceptance succeeds, team reviews final PR and merges; if it fails, document it accurately and fix only demonstrated problems before another acceptance attempt.
 
-**Real calibrated gaze selection** is NOT implemented/verified here. The React Eye Tracking screen is a prototype and the original concept called for 1.5-second gaze dwell; the architecture has no validated calibrated gaze-to-object adapter. If the rubric requires a fully working eye mode, the project is NOT complete until a separate genuine gaze pipeline, calibration, and physical test are performed.
+## Delivery / academic controls
 
-An automated ZIP cannot prove eye-tracking accuracy, physical sensor reliability, BLE pairing on another person's laptop, or a successful five-question real-world demonstration.
+- [ ] Confirm current HCI **course code**, submission platform, deadline, rubric, minimum evidence, test-participant/consent requirements, and whether two-camera gaze is mandatory. These are **not established** by the repository alone.
+- [ ] Submit only required files/links; avoid sharing personal BLE keys, face imagery without consent, child recordings, bulky model weights and secrets.
+- [ ] If the assignment demands quantitative usability evaluation, schedule and report **real** participants and measured results; no measured study is claimed as of this snapshot.
+
+**Completion criterion:** Only mark fully complete after the course rubric is satisfied, all required demonstrations—including hardware gaze if mandatory—are evidenced, and the final branch is reviewed and merged or otherwise submitted as instructed.
