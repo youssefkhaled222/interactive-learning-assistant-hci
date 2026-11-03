@@ -129,3 +129,15 @@ button:disabled{cursor:not-allowed;opacity:.55;transform:none!important;box-shad
 .local-camera-preview .secondary-btn{font-size:12px;padding:8px 14px;box-shadow:none}
 .preview-caption{width:100%;padding:7px 11px;margin:0!important;background:#f3faff;color:#617f99!important;font-size:11px!important;text-align:center}
 @media(max-width:480px){.local-camera-preview img{max-height:260px}.local-camera-preview.compact img{max-height:180px}.preview-fallback{min-height:150px}}
+
+/* HCI_GAZE_V6 — accessibility-focused live calibration and gaze feedback. */
+.gaze-calibration-panel{max-width:880px;margin:0 auto}
+.gaze-calibration-board{height:min(55vh,420px);min-height:290px;max-width:740px;margin:0 auto;border:2px solid #a5cfe9;border-radius:20px;position:relative;background:linear-gradient(145deg,#e4f5ff,#f8fcff)}
+.gaze-calibration-target{position:absolute;width:26px;height:26px;transform:translate(-50%,-50%);border-radius:50%;background:#2469be;box-shadow:0 0 0 10px #74b5ed55,0 0 0 24px #74b5ed22;pointer-events:none}
+.gaze-calibration-done{display:grid;place-items:center;height:100%;font-size:27px;color:#237750;font-weight:900}
+.gaze-small-status{font-size:13px;color:#527a98;line-height:1.5;margin:12px 0;text-align:center}
+.gaze-object-preview{position:relative;margin:18px 0;overflow:hidden;border-radius:18px}
+.gaze-object-preview .local-camera-preview img{max-height:440px}
+.gaze-aim-dot{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);border-radius:50%;border:3px solid #ffdc46;background:#f05a5266;pointer-events:none;box-shadow:0 0 0 4px #ffffffa8;z-index:3}
+.gaze-dwell-bar{height:12px;border-radius:10px;background:#d7e7f5;margin:10px 0 0;overflow:hidden}
+.gaze-dwell-bar span{height:100%;display:block;background:#5aa4d1;transition:width .12s linear}

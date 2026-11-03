@@ -8,11 +8,15 @@ import asyncio
 import json
 import logging
 import os
+import time  # HCI_PINCH_DIAGNOSTICS_V41
 
 from engine import Engine
 from ui_commands import InvalidUICommand, to_engine_event
 from sensor_events import validate_sensor_event
 from object_tracking import ObjectTracker
+from hand_selection import HandSelectionGate  # HCI_REAL_PINCH_V4
+from gaze_dwell import GazeDwellGate  # HCI_GAZE_V6
+from target_matching import resolve_target
 
 try:
     from websockets.asyncio.server import serve
@@ -31,6 +35,9 @@ engine = Engine(require_next=os.environ.get("HCI_REQUIRE_NEXT") == "1",
 subscribers = set()
 lock = asyncio.Lock()
 object_tracker = ObjectTracker()
+hand_selection_gate = HandSelectionGate()
+gaze_gate = GazeDwellGate()
+last_pinch_diagnostic_at = 0.0
 
 
 async def broadcast(state):
@@ -53,7 +60,9 @@ async def broadcast(state):
 
 def current_state():
     # Detector metadata is separate from Mohamed's mutable learning engine.
-    return {**engine.view(), **object_tracker.state()}
+    return {**engine.view(), **object_tracker.state(),
+            'hand_selection': hand_selection_gate.view(),
+            'gaze_selection': gaze_gate.view()}  # HCI_PHASE2_READY_V5
 
 
 async def expire_object_detections(now=None):
@@ -69,6 +78,17 @@ async def detector_watchdog():
     while True:
         await asyncio.sleep(0.5)
         await expire_object_detections()
+        async with lock:
+            if hand_selection_gate.expired():
+                engine.handle({'type':'hand.tracking','visible':False,
+                               'source':'mediapipe-hand'})
+                engine.handle({'type':'camera.status','ready':False,
+                               'source':'mediapipe-hand'})
+                await broadcast(current_state())
+            if gaze_gate.expired():
+                engine.handle({'type':'gaze.tracking', 'visible':False,
+                               'calibrated':False, 'source':'mediapipe-gaze'})
+                await broadcast(current_state())
 
 
 async def apply_event(event):
@@ -80,6 +100,82 @@ async def apply_event(event):
     doesn't necessarily emit a final pose.tracking=false.
     """
     async with lock:
+        if event['type'] == 'gaze.point':
+            if event['source'] != 'mediapipe-gaze':
+                raise ValueError('gaze.point requires the local MediaPipe gaze adapter')
+            has_point = event['x'] is not None and event['y'] is not None
+            engine.handle({'type':'gaze.tracking', 'visible':has_point,
+                           'calibrated':event['calibrated'],
+                           'source':'mediapipe-gaze'})
+            state = engine.view()
+            choice = gaze_gate.observe(
+                x=event['x'], y=event['y'], calibrated=event['calibrated'],
+                frame_sequence=event['frame_sequence'],
+                tracker=object_tracker, ready=not state['input_blocked'],
+                mode=state['mode'])
+            if choice is not None:
+                engine.handle({'type':'game.select', 'object':choice,
+                               'source':'mediapipe-gaze'})
+                logging.info('Real gaze dwell proposed object=%s; engine status=%s',
+                             choice, engine.view()['status'])
+            state = current_state()
+            await broadcast(state)
+            return state
+        if event['type'] in ('mode.selected','game.restart',
+                             'device.discovered','device.lost'):
+            gaze_gate.reset()
+        if event['type'] == 'hand.pointer':
+            # Hardware sensor ingress only: browser WS allow-list cannot send
+            # this event. A loopback TCP source label is not authentication.
+            if event['source'] != 'mediapipe-hand':
+                raise ValueError('hand.pointer requires the local MediaPipe hand adapter')
+            # A fresh local adapter observation is also a camera-liveness
+            # signal. This recovers after the watchdog clears a stalled source.
+            if not engine.state['camera_ready']:
+                engine.handle({'type':'camera.status','ready':True,
+                               'source':'mediapipe-hand'})
+            visible = event['x'] is not None
+            engine.handle({'type':'hand.tracking','visible':visible,
+                           'source':'mediapipe-hand'})
+            state = engine.view()
+            # Read the previous arming state before the unchanged selection gate.
+            # Diagnostic only: does not modify the sensor event or candidate.
+            was_armed = hand_selection_gate.armed
+            chosen = hand_selection_gate.observe(
+                x=event['x'], y=event['y'], pinching=event['pinching'],
+                tracker=object_tracker, ready=not state['input_blocked'],
+                mode=state['mode'])
+            # Log *rejected* pinches; v4 logged accepted selections only.
+            # Throttle during a held pinch, and never log images or face data.
+            global last_pinch_diagnostic_at
+            now_diag = time.monotonic()
+            if event['pinching'] and now_diag - last_pinch_diagnostic_at >= 0.6:
+                last_pinch_diagnostic_at = now_diag
+                target = resolve_target(
+                    object_tracker, x=event['x'], y=event['y'],
+                    coordinate_space='object_view',
+                    target_id=hand_selection_gate.candidate_id, now=now_diag)
+                held = (round(now_diag - hand_selection_gate.pinch_started, 2)
+                        if hand_selection_gate.pinch_started is not None else None)
+                logging.info(
+                    'PINCH_DIAG mode=%s ready=%s block=%s '
+                    'armed_before=%s armed_after=%s held_s=%s '
+                    'candidate=%s target_reason=%s target=%s '
+                    'detected=%s committed=%s',
+                    state['mode'], not state['input_blocked'], state['block_reason'],
+                    was_armed, hand_selection_gate.armed, held,
+                    hand_selection_gate.candidate_id, target['reason'],
+                    target.get('object'),
+                    [(item['object'], round(item['confidence'], 2))
+                     for item in object_tracker.objects], chosen)
+            if chosen is not None:
+                engine.handle({'type':'game.select','object':chosen,
+                               'source':'mediapipe-hand'})
+                logging.info('Real pinch proposed object=%s; engine status=%s',
+                             chosen, engine.view()['status'])
+            state = current_state()
+            await broadcast(state)
+            return state
         if event["type"] == "objects.detected":
             object_tracker.update(event)
             state = current_state()
@@ -90,6 +186,10 @@ async def apply_event(event):
                 "type": "pose.tracking", "visible": False,
                 "source": event["source"],
             })
+            if event['source'] == 'mediapipe-hand':
+                hand_selection_gate.reset(forget_heartbeat=True)
+                engine.handle({'type':'hand.tracking','visible':False,
+                               'source':'mediapipe-hand'})
         engine.handle(event)
         state = current_state()
         await broadcast(state)

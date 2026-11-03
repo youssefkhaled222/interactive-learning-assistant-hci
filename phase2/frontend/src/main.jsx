@@ -3,6 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './style.css';
 import CameraPreview from './CameraPreview.jsx';
+import GazeCalibration from './GazeCalibration.jsx'; // HCI_GAZE_V6
+import GazeGamePreview from './GazeGamePreview.jsx';
 import { feedbackChange, feedbackNextAction, visibleDetections, earnedStars, nextScreenAfterSetup } from './gameUiState.js';
 
 const icons = {
@@ -365,7 +367,7 @@ function App() {
               <h1>How would you like to play?</h1>
 
               <p>
-                Hand gestures are being connected. Eye tracking is a layout preview only.
+                Use real hand gestures or calibrated eye tracking with two cameras.
               </p>
             </div>
 
@@ -390,12 +392,12 @@ function App() {
                 onClick={() => chooseMode('eye')}
               >
                 <span className="mode-icon">👀</span>
-                <h2>Eye Tracking <small className="mode-preview-label">Preview only</small></h2>
+                <h2>Eye Tracking</h2>
                 <p>
-                  See the planned gaze calibration layout. Live gaze selection is not available yet.
+                  Look at a camera preview and hold your gaze on a detected object for 1.5 seconds.
                 </p>
                 <span className="card-action">
-                  View preview →
+                  Choose this way →
                 </span>
               </button>
 
@@ -478,42 +480,10 @@ function App() {
           </section>
         )}
 
-        {/* Eye Tracking Calibration */}
-
+        {/* Eye Tracking Calibration — real face camera, no fabricated gaze */}
         {screen === 'eye' && (
-          <section className="standard-panel">
-
-            <div className="section-heading">
-              <span className="eyebrow">Let’s get ready</span>
-              <h1>Look at the targets</h1>
-              <p>Visual layout preview only. Real gaze calibration is not yet implemented.</p>
-            </div>
-
-            <div className="calibration-box">
-
-              {['one', 'two', 'three', 'four'].map(n => (
-                <span key={n} className={`target target-${n}`} aria-hidden="true" />
-              ))}
-
-              <div className="calibration-center">👁️</div>
-
-              <span className="calibration-hint">
-                UI preview only — gaze calibration is not connected
-              </span>
-
-            </div>
-
-            <p className="warning-note" role="status">
-              Eye tracking and gaze dwell are not available in this build.
-              Clicking a dot would not calibrate a camera.
-            </p>
-            <div className="button-row centered">
-              <button className="secondary-btn" onClick={() => setScreen('mode')}>
-                Back to mode selection
-              </button>
-            </div>
-
-          </section>
+          <GazeCalibration onContinue={() => setScreen('camera')}
+                           onBack={() => setScreen('mode')} />
         )}
 
         {/* Camera and Object Setup */}
@@ -543,7 +513,7 @@ function App() {
 
                 <div className="readiness">
                   <b>
-                    Hand-tracking camera: {backend?.camera_ready ? 'Ready' : 'Not ready'}
+                    {engineMode === 'gaze' ? 'Hand camera (not used for gaze)' : 'Hand-tracking camera'}: {backend?.camera_ready ? 'Ready' : 'Not ready'}
                   </b>
                   <p>
                     This readiness belongs to hand tracking, not the separate YOLO object detector.
@@ -646,6 +616,9 @@ function App() {
                 Choose the object that matches the question.
               </p>
 
+              {engineMode === 'gaze' ? (
+                <GazeGamePreview gaze={backend?.gaze_selection} />
+              ) : (
               <div className="object-stage">
 
                 <span className="big-object" aria-hidden="true">🔎</span>
@@ -660,6 +633,7 @@ function App() {
                 </span>
 
               </div>
+              )}
 
               {backend?.show_hint && question?.hint && (
                 <p className="hint-note">💡 Hint: {question.hint}</p>
@@ -671,6 +645,11 @@ function App() {
               ))}
               {backend?.input_blocked && (
                 <p className="warning-note">Selections are blocked until sensors are ready.</p>
+              )}
+              {engineMode === 'gesture' && backend?.hand_selection?.hint && (
+                <p className="hint-note" role="status">
+                  Hand selection: {backend.hand_selection.hint}
+                </p>
               )}
 
               {choices.length ? (
@@ -723,7 +702,9 @@ function App() {
 
             <aside className="game-aside">
 
-              <CameraPreview compact />
+              {engineMode === 'gaze' ? (
+                <p className="gaze-small-status">Look at the object in the large preview to the left. Hold your eyes there for 1.5 seconds.</p>
+              ) : <CameraPreview compact />}
 
               <h3>Your progress</h3>
 
@@ -769,6 +750,13 @@ function App() {
                     ? 'Ready'
                     : 'Not ready'}
                 </span>
+                <span>
+                  Pinch stage: {backend?.hand_selection?.phase || 'Not connected'}
+                </span>
+                {engineMode === 'gaze' && <span>
+                  Real gaze calibration: {backend?.gaze_selection?.calibrated ? 'Ready' : 'Not ready'}
+                  {' · '}Dwell: {backend?.gaze_selection?.phase || 'not connected'}
+                </span>}
 
                 <span>
                   Gesture: {backend?.last_gesture || '—'}

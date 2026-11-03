@@ -25,6 +25,8 @@ SCHEMAS = {
     "game.next": (set(), set()),
     "game.restart": (set(), set()),
     "objects.detected": ({"active", "detections"}, set()),
+    "gaze.point": ({"x", "y", "calibrated", "frame_sequence"}, set()),  # HCI_GAZE_V6
+    "hand.pointer": ({"x", "y", "pinching", "frame_sequence"}, set()),  # HCI_REAL_PINCH_V4
 }
 
 
@@ -74,6 +76,33 @@ def validate_sensor_event(event):
             score = result["score"]
             if type(score) not in (int, float) or not math.isfinite(score):
                 raise InvalidSensorEvent("score must be a finite number")
+    elif kind == 'gaze.point':
+        if type(result['calibrated']) is not bool:
+            raise InvalidSensorEvent('calibrated must be boolean')
+        seq = result['frame_sequence']
+        if type(seq) is not int or seq < 1:
+            raise InvalidSensorEvent('gaze frame_sequence must be a positive integer')
+        x, y = result['x'], result['y']
+        if x is None or y is None:
+            if x is not None or y is not None:
+                raise InvalidSensorEvent('gaze coordinates must both be absent')
+        elif (not result['calibrated'] or
+              any(type(v) not in (int, float) or not math.isfinite(v)
+                  or not 0 <= v <= 1 for v in (x, y))):
+            raise InvalidSensorEvent('gaze point needs calibrated finite normalized coordinates')
+    elif kind == "hand.pointer":
+        if type(result['pinching']) is not bool:
+            raise InvalidSensorEvent('pinching must be boolean')
+        seq = result['frame_sequence']
+        if type(seq) is not int or seq < 1:
+            raise InvalidSensorEvent('frame_sequence must be a positive integer')
+        x, y = result['x'], result['y']
+        if x is None or y is None:
+            if x is not None or y is not None or result['pinching']:
+                raise InvalidSensorEvent('missing hand cannot pinch or give a point')
+        elif any(type(v) not in (int, float) or not math.isfinite(v) or not 0 <= v <= 1
+                 for v in (x, y)):
+            raise InvalidSensorEvent('hand pointer must be normalized finite coordinates')
     elif kind == "objects.detected":
         if type(result["active"]) is not bool:
             raise InvalidSensorEvent("active must be true or false")

@@ -170,9 +170,28 @@ def run(args):
             if labels != last_labels or (args.log_every and frame_num % args.log_every == 0):
                 print(json.dumps(preview_record(detections, w, h), ensure_ascii=False), flush=True)
                 last_labels = labels
+            # Publish the SAME camera frame for MediaPipe before drawing boxes.
+            # The MediaPipe process must never open camera 0 independently.
+            if preview_server is not None:
+                raw_ok, raw_jpeg = cv2.imencode(
+                    ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if raw_ok:
+                    preview_server.buffer.publish_raw(raw_jpeg.tobytes(), detections=detections)
             draw_detections(frame, detections, cv2)
             cv2.putText(frame, "Real YOLO detections | ESC/Q = exit", (8, 24),
                         cv2.FONT_HERSHEY_SIMPLEX, .48, (255, 255, 255), 2)
+            # Hand landmarks are from the SAME camera, reported by MediaPipe.
+            # Visualization only: stale/invalid reports fail closed and never score.
+            if preview_server is not None:
+                hand = preview_server.buffer.recent_hand()
+                if hand and hand['pointer'] is not None:
+                    px = int(hand['pointer'][0] * w)
+                    py = int(hand['pointer'][1] * h)
+                    cv2.circle(frame, (px, py), 12,
+                               (0, 0, 255) if hand['pinching'] else (0, 255, 0), 3)
+                    cv2.putText(frame, 'PINCH' if hand['pinching'] else 'FINGER',
+                                (min(w-80, max(0,px+12)), max(28,py-12)),
+                                cv2.FONT_HERSHEY_SIMPLEX, .5, (255,255,255), 2)
             if preview_server is not None:
                 success, encoded = cv2.imencode('.jpg', frame,
                                                [cv2.IMWRITE_JPEG_QUALITY, 75])

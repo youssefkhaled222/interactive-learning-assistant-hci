@@ -1,0 +1,27 @@
+﻿# Local installer backups
+/.hci-*-backups/
+/.phase2-*-backups/
+
+# Extracted temporary ZIP payloads
+/hci_*_payload/
+/apply_*.py
+/install_*.py
+/INSTRUCTIONS.txt
+
+# Temporary installation instructions
+/README_HAND_PREVIEW.md
+/README_PINCH_DIAGNOSTICS_V41.md
+/README_REAL_PINCH_V4.md
+/README_SHARED_OVERLAY_V2.md
+/README_SNAPSHOT_V3.md
+/README_START_HERE.md
+/README_V51.md
+/README_V52.md
+
+# Local Python/generated files
+/__pycache__/
+/phase2/package-lock.json
+
+# Downloaded MediaPipe models
+/phase2/models/*.task
+/phase2/models/*.source.json
