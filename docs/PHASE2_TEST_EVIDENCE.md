@@ -56,3 +56,18 @@ The deliberate invalid-input test messages and simulated WebSocket disconnect wa
 | Open issues or conclusion | TBD |
 
 **Evidence rule:** An application result screen is evidence of backend-recorded completion, but any claim that the selection came from the physical gaze pipeline should also include face-camera tracking/calibration status and the backend's gaze-selection log. Avoid relying on simulated sensor events.
+
+## Pose/DollarPy offline evaluation — 3 November 2026
+
+- Channel: right_wrist
+- Algorithm: DollarPy template matching
+- Training samples: 2 horizontal, 2 vertical
+- Held-out test samples: 5 horizontal, 5 vertical
+- Similarity acceptance threshold: 0.50
+- Overall accuracy: 9/10 (90%)
+- Horizontal: 4/5 accepted correctly (80%)
+- Vertical: 5/5 accepted correctly (100%)
+- One horizontal sample predicted horizontal but was rejected at similarity 0.3395.
+- This is offline recorded-data evaluation, not a new live-camera demonstration.
+- The small dataset does not establish generalization to new participants.
+
