@@ -15,6 +15,7 @@ from ui_commands import InvalidUICommand, to_engine_event
 from sensor_events import validate_sensor_event
 from object_tracking import ObjectTracker
 from hand_selection import HandSelectionGate  # HCI_REAL_PINCH_V4
+from gaze_dwell import GazeDwellGate  # HCI_GAZE_V6
 from target_matching import resolve_target
 
 try:
@@ -35,6 +36,7 @@ subscribers = set()
 lock = asyncio.Lock()
 object_tracker = ObjectTracker()
 hand_selection_gate = HandSelectionGate()
+gaze_gate = GazeDwellGate()
 last_pinch_diagnostic_at = 0.0
 
 
@@ -59,7 +61,8 @@ async def broadcast(state):
 def current_state():
     # Detector metadata is separate from Mohamed's mutable learning engine.
     return {**engine.view(), **object_tracker.state(),
-            'hand_selection': hand_selection_gate.view()}  # HCI_PHASE2_READY_V5
+            'hand_selection': hand_selection_gate.view(),
+            'gaze_selection': gaze_gate.view()}  # HCI_PHASE2_READY_V5
 
 
 async def expire_object_detections(now=None):
@@ -82,6 +85,10 @@ async def detector_watchdog():
                 engine.handle({'type':'camera.status','ready':False,
                                'source':'mediapipe-hand'})
                 await broadcast(current_state())
+            if gaze_gate.expired():
+                engine.handle({'type':'gaze.tracking', 'visible':False,
+                               'calibrated':False, 'source':'mediapipe-gaze'})
+                await broadcast(current_state())
 
 
 async def apply_event(event):
@@ -93,6 +100,30 @@ async def apply_event(event):
     doesn't necessarily emit a final pose.tracking=false.
     """
     async with lock:
+        if event['type'] == 'gaze.point':
+            if event['source'] != 'mediapipe-gaze':
+                raise ValueError('gaze.point requires the local MediaPipe gaze adapter')
+            has_point = event['x'] is not None and event['y'] is not None
+            engine.handle({'type':'gaze.tracking', 'visible':has_point,
+                           'calibrated':event['calibrated'],
+                           'source':'mediapipe-gaze'})
+            state = engine.view()
+            choice = gaze_gate.observe(
+                x=event['x'], y=event['y'], calibrated=event['calibrated'],
+                frame_sequence=event['frame_sequence'],
+                tracker=object_tracker, ready=not state['input_blocked'],
+                mode=state['mode'])
+            if choice is not None:
+                engine.handle({'type':'game.select', 'object':choice,
+                               'source':'mediapipe-gaze'})
+                logging.info('Real gaze dwell proposed object=%s; engine status=%s',
+                             choice, engine.view()['status'])
+            state = current_state()
+            await broadcast(state)
+            return state
+        if event['type'] in ('mode.selected','game.restart',
+                             'device.discovered','device.lost'):
+            gaze_gate.reset()
         if event['type'] == 'hand.pointer':
             # Hardware sensor ingress only: browser WS allow-list cannot send
             # this event. A loopback TCP source label is not authentication.
